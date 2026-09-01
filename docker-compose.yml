@@ -11,9 +11,31 @@ services:
     container_name: cicd-laravel-app
     restart: unless-stopped
     working_dir: /var/www/html
+    environment:
+      # The .env file is intentionally NOT baked into the image.
+      # Application config is injected via environment variables (standard for
+      # containers / production). Override via an .env file next to compose or
+      # your CI/CD secrets. Generate a new key with: php artisan key:generate --show
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: ${APP_KEY:-base64:efsrqUhFnpt3zbMpexk6r6u0qW9cKw9+L6v6dM9QA6A=}
+      APP_URL: http://localhost:8080
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_DATABASE: cicd_database
+      DB_USERNAME: cicd_user
+      DB_PASSWORD: secret
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      CACHE_STORE: redis
+      SESSION_DRIVER: redis
+      QUEUE_CONNECTION: redis
     volumes:
-      - .:/var/www/html
-      - ./storage:/var/www/html/storage
+      # Named volume seeded from the image at /var/www/html (code)
+      - app-code:/var/www/html
+      # Separate writable volume for Laravel storage (sessions/cache/views/logs)
+      - app-storage:/var/www/html/storage
     networks:
       - cicd-network
     depends_on:
@@ -28,14 +50,18 @@ services:
     ports:
       - "8080:80"
     volumes:
-      - .:/var/www/html
-      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf
+      # Serve the same code volume that the app container uses
+      - app-code:/var/www/html:ro
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     networks:
       - cicd-network
     depends_on:
       - app
 
   # MySQL Database
+  # NOTE: no host port published on purpose - a local MySQL may already use
+  # port 3306. The app reaches this via the internal bridge network (service
+  # name "db"). To expose to the host, uncomment the ports block below.
   db:
     image: mysql:8.0
     container_name: cicd-mysql
@@ -45,20 +71,23 @@ services:
       MYSQL_ROOT_PASSWORD: secret
       MYSQL_USER: cicd_user
       MYSQL_PASSWORD: secret
-    ports:
-      - "3306:3306"
+    # ports:
+    #   - "3306:3306"
     volumes:
       - db-data:/var/lib/mysql
     networks:
       - cicd-network
 
   # Redis Cache
+  # NOTE: no host port published on purpose - a local Redis may already use
+  # port 6379. The app reaches this via the internal bridge network (service
+  # name "redis"). To expose to the host, uncomment the ports block below.
   redis:
     image: redis:alpine
     container_name: cicd-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+    # ports:
+    #   - "6379:6379"
     networks:
       - cicd-network
 
@@ -68,3 +97,5 @@ networks:
 
 volumes:
   db-data:
+  app-storage:
+  app-code:
