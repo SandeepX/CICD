@@ -1,0 +1,20 @@
+# ============================================
+# .dockerignore - Files to exclude from Docker
+# ============================================
+
+.git
+.gitignore
+.env
+.env.backup
+.env.local
+node_modules
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+bootstrap/cache/*
+tests
+*.md
+.vscode
+.idea
+docker-compose*.yml
